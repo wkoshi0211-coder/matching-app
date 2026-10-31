@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>かたちのマッチング</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    min-height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, "Noto Sans JP", sans-serif;
+    background: #ffffff;
+    color: #222;
+    touch-action: manipulation;
+  }
+
+  body {
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    overflow-x: hidden;
+  }
+
+  .app {
+    width: min(1100px, 100%);
+    padding: 18px 22px 28px;
+  }
+
+  h1 {
+    margin: 0;
+    text-align: center;
+    font-size: clamp(28px, 4vw, 44px);
+    font-weight: 700;
+    letter-spacing: .08em;
+  }
+
+  .instruction {
+    text-align: center;
+    font-size: clamp(20px, 2.8vw, 30px);
+    font-weight: 700;
+    margin: 8px 0 18px;
+  }
+
+  .board {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+  }
+
+  .target-card {
+    position: relative;
+    height: clamp(180px, 25vw, 250px);
+    border: 4px solid #c89b62;
+    border-radius: 2px;
+    background: #fff;
+    overflow: hidden;
+  
+    box-sizing: border-box;
+    contain: layout;
+  }
+
+  .model-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 39%;
+    height: 63%;
+    border-right: 3px solid #c89b62;
+    border-bottom: 3px solid #c89b62;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fff;
+  }
+
+  .model-shape {
+    width: clamp(70px, 10vw, 100px);
+    height: clamp(70px, 10vw, 100px);
+    flex: 0 0 auto;
+  }
+
+  .drop-area {
+    position: absolute;
+    left: 39%;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 61%;
+    height: 100%;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  .drop-area.highlight {
+    background: #fff8df;
+  }
+
+  .drop-area.correct {
+    background: #f1faee;
+  }
+
+  .placed-shape {
+    width: 78px;
+      height: 78px;
+      min-width: 78px;
+      min-height: 78px;
+      max-width: 78px;
+      max-height: 78px;
+      flex: 0 0 78px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+  }
+
+  .choices {
+    margin-top: 24px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    border: 3px solid #222;
+  }
+
+  .choice {
+    min-height: clamp(140px, 18vw, 190px);
+    border-right: 3px solid #222;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: grab;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    touch-action: none;
+    transition: transform .12s ease, background .12s ease;
+  }
+
+  .choice:last-child { border-right: 0; }
+
+  .choice:active {
+    cursor: grabbing;
+    background: #f7f7f7;
+  }
+
+  .choice.used {
+    opacity: .22;
+    cursor: default;
+  }
+
+  .drag-ghost {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: clamp(70px, 10vw, 100px);
+    height: clamp(70px, 10vw, 100px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    z-index: 9999;
+    transform: translate(-50%, -50%);
+  }
+
+  .drag-ghost .shape {
+    width: 100%;
+    height: 100%;
+  }
+
+  .shape {
+    width: clamp(70px, 10vw, 100px);
+    height: clamp(70px, 10vw, 100px);
+    display: block;
+  }
+
+  .progress {
+    position: fixed;
+    top: 14px;
+    right: 18px;
+    z-index: 1000;
+    font-size: clamp(20px, 3vw, 32px);
+    font-weight: 700;
+    letter-spacing: .08em;
+    background: rgba(255,255,255,.92);
+    padding: 4px 8px;
+    border-radius: 8px;
+  }
+
+  .message {
+    min-height: 42px;
+    margin-top: 14px;
+    text-align: center;
+    font-size: clamp(18px, 2.5vw, 27px);
+    font-weight: 700;
+  }
+
+  body.finished::before {
+    content: "よくできました";
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #ffffff;
+    color: #222;
+    font-size: clamp(48px, 10vw, 110px);
+    font-weight: 700;
+  }
+
+  body.finished .app {
+    visibility: hidden;
+  }
+
+  .reset {
+    display: block;
+    margin: 4px auto 0;
+    min-width: 180px;
+    min-height: 54px;
+    padding: 8px 20px;
+    border: 0;
+    border-radius: 12px;
+    background: #555;
+    color: #fff;
+    font-size: 20px;
+    font-weight: 700;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+
+  @media (max-width: 700px) {
+    .app { padding: 12px 12px 20px; }
+    .board { gap: 10px; }
+    .target-card { height: 180px; border-width: 3px; }
+    .model-area { border-width: 2px; }
+    .choices { margin-top: 14px; border-width: 2px; }
+    .choice { min-height: 125px; border-width: 2px; }
+    .reset { min-height: 50px; }
+  }
+
+  @media (orientation: portrait) and (max-width: 600px) {
+    .target-card { height: 165px; }
+    .choice { min-height: 105px; }
+  }
+
+  /* iPadの画面内に課題全体を収める */
+  html, body {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .app {
+    height: 100vh;
+    min-height: 0;
+    box-sizing: border-box;
+  }
+
+  .board {
+    min-height: 0;
+  }
+
+  .choices {
+    min-height: 0;
+  }
+
+  @media (max-width: 900px) {
+    .app {
+      padding-top: 12px;
+      padding-bottom: 12px;
+    }
+
+    .board {
+      gap: 8px;
+    }
+
+    .choices {
+      gap: 10px;
+    }
+  }
+
+
+  /* 「もういちど」は9セット終了後だけ表示 */
+  #reset {
+    display: none !important;
+  }
+
+  body.finished #reset {
+    display: block !important;
+    visibility: visible;
+    position: fixed;
+    z-index: 2001;
+    left: 50%;
+    top: calc(50% + clamp(70px, 10vw, 110px));
+    transform: translateX(-50%);
+    margin: 0;
+  }
+
+
+  /* iPad縦画面：上の見本から下の選択肢まで画面内に収める */
+  @media (max-width: 1366px) and (orientation: landscape) {
+    html, body {
+      width: 100%;
+      height: 100%;
+      min-height: 100%;
+      overflow: hidden;
+    }
+
+    .app {
+      width: 100%;
+      height: 100dvh;
+      min-height: 0;
+      max-height: 100dvh;
+      box-sizing: border-box;
+      padding: 6px 12px 8px;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto auto;
+      gap: 6px;
+      overflow: hidden;
+    }
+
+    h1 {
+      font-size: clamp(24px, 4vw, 36px);
+      line-height: 1.1;
+    }
+
+    .board {
+      width: 100%;
+      height: 100%;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      overflow: hidden;
+    }
+
+    .target-card {
+      width: 100%;
+      height: 100%;
+      min-width: 0;
+      min-height: 0;
+      max-height: 100%;
+      box-sizing: border-box;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .model-area,
+    .drop-area {
+      min-width: 0;
+      min-height: 0;
+      width: auto;
+      height: auto;
+    }
+
+    /* ドロップ後の中身が枠のサイズ計算に影響しないよう固定 */
+    .drop-area {
+      overflow: hidden;
+      contain: layout paint size;
+    }
+
+    .placed-shape {
+      width: 78px;
+      height: 78px;
+      min-width: 78px;
+      min-height: 78px;
+      max-width: 78px;
+      max-height: 78px;
+      flex: 0 0 78px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
+    }
+
+    .placed-shape .shape {
+      width: 78px;
+      height: 78px;
+      max-width: 78px;
+      max-height: 78px;
+      flex: 0 0 78px;
+    }
+
+    /* 選択肢は潰さず、画面内に必ず残す */
+    .choices {
+      width: 100%;
+      height: 96px;
+      min-height: 96px;
+      margin-top: 0;
+      box-sizing: border-box;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      padding: 0;
+    }
+
+    .choice {
+      width: 100%;
+      height: 100%;
+      min-height: 0;
+      box-sizing: border-box;
+    }
+
+    .choice .shape {
+      width: 78px;
+      height: 78px;
+      max-width: 90%;
+      max-height: 90%;
+    }
+
+    .message {
+      min-height: 0;
+      height: 0;
+      margin: 0;
+      overflow: visible;
+    }
+
+    .progress {
+      top: 4px;
+      right: 8px;
+    }
+  }
+
+
+  /* iPad横画面：上の見本から下の選択肢まで画面内に収める */
+  @media (max-width: 1366px) and (orientation: landscape) {
+    html, body {
+      height: 100%;
+      min-height: 100%;
+      overflow: hidden;
+    }
+
+    .app {
+      height: 100dvh;
+      min-height: 0;
+      max-height: 100dvh;
+      box-sizing: border-box;
+      padding: 8px 14px 8px;
+      gap: 8px;
+      overflow: hidden;
+    }
+
+    .board {
+      flex: 1 1 auto;
+      min-height: 0;
+      height: auto;
+      gap: 8px;
+    }
+
+    .target-card {
+      min-height: 0;
+      height: auto;
+    }
+
+    .model-area,
+    .drop-area {
+      min-height: 0;
+    }
+
+    /* 選択肢を潰さない */
+    .choices {
+      flex: 0 0 auto;
+      min-height: 0;
+      height: auto;
+      gap: 10px;
+      padding: 4px 0 6px;
+    }
+
+    .choice {
+      min-height: 72px;
+      height: 72px;
+    }
+
+    .choice .shape {
+      max-width: 100%;
+      max-height: 100%;
+    }
+
+    .progress {
+      top: 6px;
+      right: 10px;
+    }
+  }
+
+
+  /* iPad横画面：ドロップ前後で上の枠の大きさを完全固定 */
+  @media (max-width: 1366px) and (orientation: landscape) {
+    .board {
+      display: grid !important;
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+      grid-template-rows: repeat(2, minmax(0, 1fr)) !important;
+      min-height: 0 !important;
+      height: 100% !important;
+    }
+
+    .target-card {
+      width: 100% !important;
+      height: 100% !important;
+      min-width: 0 !important;
+      min-height: 0 !important;
+      max-width: 100% !important;
+      max-height: 100% !important;
+      box-sizing: border-box !important;
+      overflow: hidden !important;
+      contain: strict !important;
+    }
+
+    .drop-area {
+      position: absolute !important;
+      left: 39% !important;
+      top: 0 !important;
+      width: 61% !important;
+      height: 100% !important;
+      right: auto !important;
+      bottom: auto !important;
+      min-width: 0 !important;
+      min-height: 0 !important;
+      max-width: 61% !important;
+      max-height: 100% !important;
+      box-sizing: border-box !important;
+      overflow: hidden !important;
+      contain: strict !important;
+    }
+
+    .placed-shape {
+      width: 78px !important;
+      height: 78px !important;
+      min-width: 78px !important;
+      min-height: 78px !important;
+      max-width: 78px !important;
+      max-height: 78px !important;
+      flex: 0 0 78px !important;
+      box-sizing: border-box !important;
+    }
+  }
+
+
+  /* 4〜7セット目：iPadでも見本と選択肢を同じ大きさで表示 */
+  .size-matched,
+  .choice-size-matched {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    box-sizing: border-box;
+  }
+
+  .size-matched .shape,
+  .choice-size-matched .shape {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+    flex: 0 0 auto !important;
+  }
+
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="progress" id="progress">○○○○○</div>
+  <div class="drag-ghost" id="dragGhost"></div>
+  <h1>◆ マッチング</h1>
+  
+
+  <main class="board" id="board"></main>
+
+  <div class="choices" id="choices"></div>
+
+  <div class="message" id="message" aria-live="polite"></div>
+  <button class="reset" id="reset">もういちど</button>
+</div>
+
+<script>
+"use strict";
+
+/*
+  9セットの形マッチング課題
+  1〜3：丸・三角・四角・星。形と色が同じものが正解
+  4：丸だけ。色は同じで、大きさが異なる
+  5：三角だけ。色は同じで、大きさが異なる
+  6：四角だけ。色は同じで、大きさが異なる
+  7：星だけ。色は同じで、大きさが異なる
+  8〜9：形は異なるが、色が同じものが正解
+*/
+
+const colorPalette = ["#e96b63", "#62a6d8", "#e8a84b", "#8f73b8"];
+const sizeValues = [18, 36, 58, 82];
+
+const shapeNames = {
+  circle: "丸",
+  triangle: "三角",
+  square: "四角",
+  star: "星"
+};
+
+function shuffle(array) {
+  const a = [...array];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function createShape(type, color, size) {
+  const cx = 50;
+  const cy = 50;
+
+  if (type === "circle") {
+    const r = size / 2;
+    return `<svg class="shape" viewBox="0 0 100 100" aria-label="丸">
+      <circle cx="${cx}" cy="${cy}" r="${r}" fill="${color}"/>
+    </svg>`;
+  }
+
+  if (type === "triangle") {
+    const half = size / 2;
+    const top = cy - half * 0.9;
+    const bottom = cy + half * 0.9;
+    const left = cx - half;
+    const right = cx + half;
+    return `<svg class="shape" viewBox="0 0 100 100" aria-label="三角">
+      <polygon points="${cx},${top} ${right},${bottom} ${left},${bottom}" fill="${color}"/>
+    </svg>`;
+  }
+
+  if (type === "square") {
+    const half = size / 2;
+    return `<svg class="shape" viewBox="0 0 100 100" aria-label="四角">
+      <rect x="${cx-half}" y="${cy-half}" width="${size}" height="${size}" rx="2" fill="${color}"/>
+    </svg>`;
+  }
+
+  const outer = size / 2;
+  const inner = outer * 0.42;
+  const points = [];
+  for (let i = 0; i < 10; i++) {
+    const angle = -Math.PI / 2 + i * Math.PI / 5;
+    const radius = i % 2 === 0 ? outer : inner;
+    points.push(`${cx + Math.cos(angle) * radius},${cy + Math.sin(angle) * radius}`);
+  }
+
+  return `<svg class="shape" viewBox="0 0 100 100" aria-label="星">
+    <polygon points="${points.join(" ")}" fill="${color}"/>
+  </svg>`;
+}
+
+function makeItem(id, type, color, size) {
+  return {
+    id,
+    type,
+    color,
+    size,
+    name: shapeNames[type],
+    svg: createShape(type, color, size)
+  };
+}
+/* 4〜7セット目：見本と選択肢で同じ表示サイズを使う */
+function getSizeDisplayPx(size) {
+  const map = {
+    18: 42,
+    36: 58,
+    58: 74,
+    82: 94
+  };
+  return map[size] ?? 74;
+}
+
+
+/* 1〜3セット：4種類。色はセットごとにランダム */
+function createShapeSet(setNumber) {
+  const colors = shuffle(colorPalette);
+
+  const targets = [
+    makeItem(`s${setNumber}-circle`, "circle", colors[0], 58),
+    makeItem(`s${setNumber}-triangle`, "triangle", colors[1], 58),
+    makeItem(`s${setNumber}-square`, "square", colors[2], 58),
+    makeItem(`s${setNumber}-star`, "star", colors[3], 58)
+  ];
+
+  return {
+    targets: shuffle(targets),
+    choices: shuffle(targets)
+  };
+}
+
+/* 4〜7セット：同じ形・同じ色で、大きさだけが異なる */
+function createSizeSet(setNumber, type) {
+  const color = colorPalette[Math.floor(Math.random() * colorPalette.length)];
+
+  const targets = sizeValues.map((size, index) =>
+    makeItem(`s${setNumber}-${type}-${index}`, type, color, size)
+  );
+
+  return {
+    targets: shuffle(targets),
+    choices: shuffle(targets)
+  };
+}
+
+/* 8〜9セット：形は違うが、色が同じものが正解 */
+function createColorSet(setNumber) {
+  const fixedChoices = [
+    makeItem(`s${setNumber}-choice-circle`, "circle", "#8f73b8", 58),
+    makeItem(`s${setNumber}-choice-triangle`, "triangle", "#e8a84b", 58),
+    makeItem(`s${setNumber}-choice-square`, "square", "#e96b63", 58),
+    makeItem(`s${setNumber}-choice-star`, "star", "#62a6d8", 58)
+  ];
+
+  if (setNumber === 8) {
+    const targetColors = ["#62a6d8", "#e96b63", "#e8a84b", "#8f73b8"];
+
+    const targets = [
+      makeItem(`s${setNumber}-target-blue`, "circle", "#62a6d8", 58),
+      makeItem(`s${setNumber}-target-red`, "circle", "#e96b63", 58),
+      makeItem(`s${setNumber}-target-yellow`, "circle", "#e8a84b", 58),
+      makeItem(`s${setNumber}-target-purple`, "circle", "#8f73b8", 58)
+    ].map((item, index) => ({
+      ...item,
+      frameColor: targetColors[index],
+      svg: `<div class="color-target"></div>`
+    }));
+
+    return {
+      targets: shuffle(targets),
+      choices: shuffle(fixedChoices)
+    };
+  }
+
+  /* 9セット目：
+     見本と選択肢は「形」も「色」も同じ組み合わせにならない。
+     正答条件は色が同じ。 */
+  const targetShapes = shuffle(["circle", "triangle", "square", "star"]);
+  const targetColors = shuffle([
+    "#e96b63",
+    "#62a6d8",
+    "#e8a84b",
+    "#8f73b8"
+  ]);
+
+  const targets = targetShapes.map((type, index) =>
+    makeItem(
+      `s${setNumber}-target-${index}`,
+      type,
+      targetColors[index],
+      58
+    )
+  );
+
+  /* 色は見本と同じだが、形を1つずらす。
+     これにより、どの選択肢も見本と「形＋色」の両方が一致しない。 */
+  const choices = targets.map((target, index) =>
+    makeItem(
+      `s${setNumber}-choice-${index}`,
+      targetShapes[(index + 1) % targetShapes.length],
+      target.color,
+      58
+    )
+  );
+
+  return {
+    targets: shuffle(targets),
+    choices: shuffle(choices)
+  };
+}
+
+function getCurrentItems() {
+  if (currentSet <= 2) {
+    return createShapeSet(currentSet + 1);
+  }
+
+  if (currentSet === 3) return createSizeSet(4, "circle");
+  if (currentSet === 4) return createSizeSet(5, "triangle");
+  if (currentSet === 5) return createSizeSet(6, "square");
+  if (currentSet === 6) return createSizeSet(7, "star");
+
+  return createColorSet(currentSet + 1);
+}
+
+const TOTAL_SETS = 9;
+let currentSet = 0;
+let completedSets = 0;
+let currentItems = null;
+
+const board = document.getElementById("board");
+const choices = document.getElementById("choices");
+const message = document.getElementById("message");
+const resetButton = document.getElementById("reset");
+const dragGhost = document.getElementById("dragGhost");
+const progress = document.getElementById("progress");
+
+let selectedChoice = null;
+let placed = new Set();
+let dragId = null;
+
+function updateProgress() {
+  if (completedSets >= TOTAL_SETS) {
+    progress.textContent = "よくできました";
+  } else {
+    progress.textContent =
+      "●".repeat(completedSets) + "○".repeat(TOTAL_SETS - completedSets);
+  }
+}
+
+function render() {
+  updateProgress();
+
+  /* 課題中は「もういちど」を必ず非表示 */
+  resetButton.style.display = "none";
+  resetButton.style.visibility = "hidden";
+
+  currentItems = getCurrentItems();
+  board.innerHTML = "";
+  choices.innerHTML = "";
+  selectedChoice = null;
+  placed = new Set();
+  dragId = null;
+  dragGhost.style.display = "none";
+  dragGhost.innerHTML = "";
+  message.textContent = "";
+
+  shuffle(currentItems.targets).forEach(item => {
+    const card = document.createElement("section");
+    card.className = "target-card";
+    card.dataset.target = item.id;
+
+    const model = document.createElement("div");
+    model.className = "model-area";
+    if (currentSet === 7 && item.frameColor) {
+      model.innerHTML = `<div class="model-shape color-target" style="background:${item.frameColor};"></div>`;
+    } else if (currentSet >= 3 && currentSet <= 6) {
+      const px = getSizeDisplayPx(item.size);
+      model.innerHTML = `<div class="model-shape size-matched" style="width:${px}px;height:${px}px;">${item.svg}</div>`;
+    } else {
+      model.innerHTML = `<div class="model-shape">${item.svg}</div>`;
+    }
+
+    const drop = document.createElement("div");
+    drop.className = "drop-area";
+    drop.dataset.target = item.id;
+
+    drop.style.background = "#ffffff";
+
+    card.appendChild(model);
+    card.appendChild(drop);
+    board.appendChild(card);
+
+    drop.addEventListener("pointerenter", () => {
+      if (dragId) {
+        drop.classList.add("highlight");
+      }
+    });
+
+    drop.addEventListener("pointerleave", () => {
+      drop.classList.remove("highlight");
+      drop.style.background = "#ffffff";
+    });
+  });
+
+  shuffle(currentItems.choices).forEach(item => {
+    const choice = document.createElement("div");
+    choice.className = "choice";
+    choice.dataset.id = item.id;
+
+    if (currentSet >= 3 && currentSet <= 6) {
+      const px = getSizeDisplayPx(item.size);
+      choice.innerHTML = `<div class="choice-size-matched" style="width:${px}px;height:${px}px;">${item.svg}</div>`;
+    } else {
+      choice.innerHTML = item.svg;
+    }
+
+    choice.setAttribute("aria-label", item.name);
+    choice.setAttribute("role", "button");
+
+    choice.addEventListener("pointerdown", e => {
+      if (placed.has(item.id)) return;
+
+      dragId = item.id;
+      selectedChoice = null;
+
+      if (currentSet >= 3 && currentSet <= 6) {
+        const px = getSizeDisplayPx(item.size);
+        dragGhost.innerHTML = `<div style="width:${px}px;height:${px}px;display:flex;align-items:center;justify-content:center;">${item.svg}</div>`;
+      } else {
+        dragGhost.innerHTML = item.svg;
+      }
+      dragGhost.style.display = "flex";
+      moveDragGhost(e.clientX, e.clientY);
+
+      choice.setPointerCapture?.(e.pointerId);
+    });
+
+    choices.appendChild(choice);
+  });
+
+  updateSelection();
+}
+
+function updateSelection() {
+  document.querySelectorAll(".choice").forEach(el => {
+    el.style.outline = (el.dataset.id === selectedChoice && !placed.has(el.dataset.id))
+      ? "5px solid #f0c33c"
+      : "";
+    el.style.outlineOffset = "-5px";
+  });
+}
+
+function isCorrect(choice, target) {
+  if (currentSet >= 7) {
+    /* 8・9セット目：色が同じなら正解 */
+    return choice.color === target.color;
+  }
+
+  if (currentSet >= 3) {
+    /* 4〜7セット目：形と大きさが同じなら正解 */
+    return choice.type === target.type && choice.size === target.size;
+  }
+
+  /* 1〜3セット目：形と色が同じなら正解 */
+  return choice.type === target.type && choice.color === target.color;
+}
+
+function placeShape(choiceId, targetId) {
+  if (!choiceId || !targetId || placed.has(choiceId)) return;
+
+  const target = currentItems.targets.find(item => item.id === targetId);
+  const choice = currentItems.choices.find(item => item.id === choiceId);
+  if (!target || !choice) return;
+
+  if (isCorrect(choice, target)) {
+    const drop = document.querySelector(`.drop-area[data-target="${targetId}"]`);
+    if (currentSet >= 3 && currentSet <= 6) {
+      const px = getSizeDisplayPx(choice.size);
+      drop.innerHTML = `<div class="placed-shape" style="width:${px}px;height:${px}px;">${choice.svg}</div>`;
+    } else {
+      drop.innerHTML = `<div class="placed-shape">${choice.svg}</div>`;
+    }
+    drop.classList.remove("highlight");
+
+    drop.classList.add("correct");
+
+    drop.style.background = "#ffffff";
+
+    const choiceElement = document.querySelector(`.choice[data-id="${choiceId}"]`);
+    if (choiceElement) choiceElement.classList.add("used");
+
+    placed.add(choiceId);
+    selectedChoice = null;
+    message.textContent = "";
+    updateSelection();
+
+    if (placed.size === currentItems.targets.length) {
+      setTimeout(() => {
+        completedSets++;
+
+        if (completedSets >= TOTAL_SETS) {
+          updateProgress();
+          document.body.classList.add("finished");
+          resetButton.style.display = "block";
+          resetButton.style.visibility = "visible";
+          message.textContent = "";
+        } else {
+          currentSet++;
+          updateProgress();
+          render();
+        }
+      }, 900);
+    }
+  } else {
+    message.textContent = "もう一度";
+    selectedChoice = choiceId;
+    updateSelection();
+  }
+}
+
+resetButton.addEventListener("click", () => {
+  /* 9セット終了後だけ使用可能 */
+  if (completedSets >= TOTAL_SETS) {
+    resetButton.style.display = "none";
+    resetButton.style.visibility = "hidden";
+    document.body.classList.remove("finished");
+    completedSets = 0;
+    currentSet = 0;
+    render();
+  }
+});
+
+function moveDragGhost(x, y) {
+  dragGhost.style.left = `${x}px`;
+  dragGhost.style.top = `${y}px`;
+}
+
+document.addEventListener("pointermove", e => {
+  if (!dragId) return;
+
+  moveDragGhost(e.clientX, e.clientY);
+
+  const el = document.elementFromPoint(e.clientX, e.clientY);
+  const drop = el?.closest?.(".drop-area");
+  document.querySelectorAll(".drop-area").forEach(d => {
+    d.classList.remove("highlight");
+    d.style.background = "#ffffff";
+  });
+
+  if (drop) {
+    drop.classList.add("highlight");
+  }
+});
+
+document.addEventListener("pointerup", e => {
+  if (!dragId) return;
+
+  const choiceId = dragId;
+  const el = document.elementFromPoint(e.clientX, e.clientY);
+  const drop = el?.closest?.(".drop-area");
+
+  if (drop) {
+    placeShape(choiceId, drop.dataset.target);
+  }
+
+  document.querySelectorAll(".drop-area").forEach(d => {
+    d.classList.remove("highlight");
+    d.style.background = "#ffffff";
+  });
+  dragId = null;
+  dragGhost.style.display = "none";
+  dragGhost.innerHTML = "";
+});
+
+render();
+</script>
+</body>
+</html>
+
