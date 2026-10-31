@@ -651,6 +651,27 @@
 .everyday-mode .message { height: 24px; min-height: 0; margin: 0; font-size: 20px; line-height: 24px; }
 .drop-area.highlight { box-shadow: inset 0 0 0 4px #edc45a; }
 
+
+/* 課題10・11：文字を使わず、大きな形の見本で分類先を示す */
+.category-card .category-model {
+  height: clamp(76px, 15dvh, 110px);
+  padding: 4px 8px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #fff;
+  border-bottom: 3px solid #c89b62;
+}
+.category-model svg {
+  display: block;
+  height: 100%;
+  width: 100%;
+  max-width: 220px;
+  fill: #fff;
+  stroke: #222;
+  stroke-width: 6;
+  stroke-linejoin: round;
+}
 </style>
 </head>
 <body>
@@ -1164,10 +1185,15 @@ let everydayTransition = false;
 function renderEveryday() {
   everydayTransition = false;
   const labels = { triangle: "△ 三角", square: "□ ▭ 四角", circle: "○ 丸" };
+  const models = {
+    triangle: '<svg viewBox="0 0 200 100" aria-hidden="true"><path d="M100 12 L145 86 H55Z"/></svg>',
+    square: '<svg viewBox="0 0 200 100" aria-hidden="true"><rect x="22" y="19" width="62" height="62"/><rect x="119" y="10" width="48" height="80"/></svg>',
+    circle: '<svg viewBox="0 0 200 100" aria-hidden="true"><circle cx="100" cy="50" r="38"/></svg>'
+  };
   currentItems.targets.forEach(item => {
     const card = document.createElement("section");
     card.className = "target-card category-card";
-    card.innerHTML = `<h2>${labels[item.category]}</h2><div class="drop-area category-drop" data-target="${item.id}" aria-label="${labels[item.category]}に入れる"></div>`;
+    card.innerHTML = `<h2 class="category-model" aria-label="${labels[item.category]}">${models[item.category]}</h2><div class="drop-area category-drop" data-target="${item.id}" aria-label="${labels[item.category]}に入れる"></div>`;
     board.appendChild(card);
   });
   currentItems.choices.forEach(item => {
