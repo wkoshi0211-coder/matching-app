@@ -284,7 +284,7 @@
   }
 
 
-  /* 「もういちど」は9セット終了後だけ表示 */
+  /* 「もういちど」は11セット終了後だけ表示 */
   #reset {
     display: none !important;
   }
@@ -602,6 +602,55 @@
     .message { height: 24px; min-height: 0; margin: 0; font-size: 20px; line-height: 24px; }
   }
 
+
+/* 課題10・11：生活用品の形の分類 */
+.app.everyday-mode {
+  display: grid;
+  height: 100vh;
+  height: 100dvh;
+  grid-template-rows: auto minmax(0, 1fr) clamp(180px, 36dvh, 270px) 24px;
+  gap: 10px;
+  padding: max(10px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+}
+.everyday-mode h1 { font-size: clamp(24px, 3vw, 36px); line-height: 1.15; }
+.everyday-mode .progress { font-size: clamp(17px, 2.3vw, 26px); }
+.everyday-mode .board {
+  height: auto !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  grid-template-rows: minmax(0, 1fr) !important;
+  gap: 10px;
+}
+.category-card { display: flex; flex-direction: column; min-height: 0; }
+.category-card h2 {
+  flex: 0 0 auto; margin: 0; padding: 8px 2px; text-align: center;
+  font-size: clamp(24px, 3vw, 34px); line-height: 1.15;
+  border-bottom: 2px solid #c89b62;
+}
+.category-card .category-drop {
+  position: relative !important; inset: auto !important;
+  width: 100% !important; height: auto !important;
+  max-width: 100% !important; max-height: none !important;
+  flex: 1 1 0; min-height: 0 !important;
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 2px; padding: 4px;
+  contain: layout paint !important;
+}
+.sorted-object { width: 100%; height: 100%; min-width: 0; min-height: 0; display: flex; justify-content: center; align-items: center; }
+.sorted-object .object-art { width: 100%; height: 100%; max-width: 110px; max-height: 110px; }
+.everyday-mode .choices {
+  display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: 8px; height: 100%; min-height: 0; padding: 0; margin: 0; border: 0;
+}
+.everyday-mode .object-choice {
+  border: 2px solid #666; border-radius: 8px;
+  width: 100%; height: 100%; min-height: 0; min-width: 0; padding: 3px;
+}
+.everyday-mode .object-choice .object-art { width: 100%; height: 100%; max-width: 120px; max-height: 120px; }
+.object-choice.sorted { visibility: hidden; pointer-events: none; }
+.everyday-mode .message { height: 24px; min-height: 0; margin: 0; font-size: 20px; line-height: 24px; }
+.drop-area.highlight { box-shadow: inset 0 0 0 4px #edc45a; }
+
 </style>
 </head>
 <body>
@@ -814,6 +863,7 @@ function createColorSet(setNumber) {
 }
 
 function getCurrentItems() {
+  if (currentSet >= 9) return createEverydaySet(currentSet + 1);
   if (currentSet <= 2) {
     return createShapeSet(currentSet + 1);
   }
@@ -826,7 +876,7 @@ function getCurrentItems() {
   return createColorSet(currentSet + 1);
 }
 
-const TOTAL_SETS = 9;
+const TOTAL_SETS = 11;
 let currentSet = 0;
 let completedSets = 0;
 let currentItems = null;
@@ -852,6 +902,7 @@ function updateProgress() {
 }
 
 function render() {
+  document.querySelector(".app").classList.toggle("everyday-mode", currentSet >= 9);
   updateProgress();
 
   /* 課題中は「もういちど」を必ず非表示 */
@@ -867,6 +918,8 @@ function render() {
   dragGhost.style.display = "none";
   dragGhost.innerHTML = "";
   message.textContent = "";
+
+  if (currentSet >= 9) { renderEveryday(); return; }
 
   shuffle(currentItems.targets).forEach(item => {
     const card = document.createElement("section");
@@ -970,6 +1023,7 @@ function isCorrect(choice, target) {
 }
 
 function placeShape(choiceId, targetId) {
+  if (currentSet >= 9) { placeEveryday(choiceId, targetId); return; }
   if (!choiceId || !targetId || placed.has(choiceId)) return;
 
   const target = currentItems.targets.find(item => item.id === targetId);
@@ -1023,7 +1077,7 @@ function placeShape(choiceId, targetId) {
 }
 
 resetButton.addEventListener("click", () => {
-  /* 9セット終了後だけ使用可能 */
+  /* 11セット終了後だけ使用可能 */
   if (completedSets >= TOTAL_SETS) {
     resetButton.style.display = "none";
     resetButton.style.visibility = "hidden";
@@ -1074,6 +1128,104 @@ document.addEventListener("pointerup", e => {
   dragId = null;
   dragGhost.style.display = "none";
   dragGhost.innerHTML = "";
+});
+
+// Everyday objects are drawn as transparent SVGs with clear front-facing outlines.
+function objectSvg(name, drawing) {
+  return `<svg class="shape object-art" viewBox="0 0 120 120" role="img" aria-label="${name}" xmlns="http://www.w3.org/2000/svg"><g stroke="#594b40" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">${drawing}</g></svg>`;
+}
+const everydayObjects = [
+  ["onigiri", "おにぎり", "triangle", '<path d="M60 12 Q64 12 68 20 L108 96 Q112 105 101 107 H19 Q8 105 12 96 L52 20 Q56 12 60 12Z" fill="#fff9e9"/><path d="M44 77 H76 V107 H44Z" fill="#344737"/><g fill="#cfc4ab" stroke="none"><circle cx="38" cy="66" r="2"/><circle cx="75" cy="55" r="2"/><circle cx="58" cy="36" r="2"/></g>'],
+  ["sandwich", "サンドイッチ", "triangle", '<path d="M15 104 L60 14 L105 104Z" fill="#bd793f"/><path d="M22 98 L60 23 L98 98Z" fill="#fff5d9"/><path d="M28 88 L60 33 L92 88Z" fill="#f5d669"/><path d="M32 82 L60 42 L87 82" fill="none" stroke="#70a454" stroke-width="6"/><path d="M39 70 L60 48 L79 70" fill="none" stroke="#de7a79" stroke-width="5"/>'],
+  ["pizza", "ピザ", "triangle", '<path d="M60 13 L108 103 H12Z" fill="#edbd58"/><path d="M60 25 L99 96 H21Z" fill="#f8dc75"/><path d="M15 102 H105" stroke="#bb7a3d" stroke-width="12"/><g fill="#d55b4c"><circle cx="60" cy="46" r="8"/><circle cx="45" cy="78" r="8"/><circle cx="77" cy="81" r="8"/></g>'],
+  ["watermelon", "すいか", "triangle", '<path d="M60 13 L108 103 H12Z" fill="#6b9b53"/><path d="M60 22 L99 96 H21Z" fill="#f5edb6"/><path d="M60 29 L93 89 H27Z" fill="#eb726d"/><g fill="#403d35" stroke="none"><ellipse cx="60" cy="51" rx="2.5" ry="4"/><ellipse cx="48" cy="74" rx="2.5" ry="4"/><ellipse cx="72" cy="77" rx="2.5" ry="4"/></g>'],
+  ["bread", "食パン", "square", '<rect x="15" y="15" width="90" height="90" rx="5" fill="#c98c50"/><rect x="23" y="23" width="74" height="74" rx="3" fill="#fff1d2"/><g fill="#e4cca3" stroke="none"><circle cx="40" cy="39" r="2"/><circle cx="79" cy="53" r="2"/><circle cx="57" cy="80" r="2"/></g>'],
+  ["cookie", "クッキー", "square", '<rect x="16" y="16" width="88" height="88" rx="4" fill="#d5a367"/><rect x="23" y="23" width="74" height="74" rx="2" fill="#e8bf82" stroke="#b98751" stroke-dasharray="2 7"/><g fill="#6f4933" stroke="none"><circle cx="39" cy="39" r="5"/><circle cx="77" cy="42" r="5"/><circle cx="58" cy="62" r="5"/><circle cx="38" cy="82" r="5"/><circle cx="81" cy="80" r="5"/></g>'],
+  ["window", "窓", "square", '<rect x="14" y="14" width="92" height="92" fill="#cfac80"/><rect x="22" y="22" width="76" height="76" fill="#b9dfed"/><path d="M60 22 V98 M22 60 H98" stroke="#cfac80" stroke-width="7"/><path d="M30 43 L43 30 M72 89 L89 72" stroke="#f5fcff" stroke-width="4"/>'],
+  ["door", "ドア", "square", '<rect x="28" y="10" width="64" height="100" fill="#ab7954"/><rect x="34" y="16" width="52" height="94" fill="#d5aa7b"/><rect x="42" y="26" width="36" height="30" fill="#dfbc96"/><rect x="42" y="69" width="36" height="31" fill="#dfbc96"/><circle cx="77" cy="63" r="4" fill="#e8c65c"/>'],
+  ["book", "本", "square", '<rect x="23" y="13" width="75" height="94" rx="2" fill="#789bc0"/><path d="M31 13 V107" fill="none"/><rect x="43" y="31" width="42" height="25" rx="2" fill="#fff4d7"/><path d="M49 41 H79 M49 48 H72" stroke="#789bc0" stroke-width="2"/><path d="M35 99 H92" stroke="#f5ead6" stroke-width="4"/>'],
+  ["tire", "タイヤ", "circle", '<circle cx="60" cy="60" r="47" fill="#444b50"/><circle cx="60" cy="60" r="34" fill="#30373c"/><circle cx="60" cy="60" r="25" fill="#c4c9cb"/><path d="M60 37 V83 M37 60 H83 M44 44 L76 76 M44 76 L76 44" stroke="#7c858a" stroke-width="5"/><circle cx="60" cy="60" r="7" fill="#a4adb2"/>'],
+  ["plate", "皿", "circle", '<circle cx="60" cy="60" r="47" fill="#f6fbff" stroke="#6e9eb5"/><circle cx="60" cy="60" r="38" fill="none" stroke="#bad9e7" stroke-width="5"/><circle cx="60" cy="60" r="29" fill="#e9f5fb" stroke="#a7c9d9" stroke-width="2"/>'],
+  ["clock", "時計", "circle", '<circle cx="60" cy="60" r="47" fill="#ccaa78"/><circle cx="60" cy="60" r="40" fill="#fffdf4"/><g stroke="#665b4d" stroke-width="2"><path d="M60 24 V29 M96 60 H91 M60 96 V91 M24 60 H29"/></g><g fill="#594b40" stroke="none" font-family="sans-serif" font-size="12" text-anchor="middle"><text x="60" y="41">12</text><text x="83" y="64">3</text><text x="60" y="87">6</text><text x="37" y="64">9</text></g><path d="M60 60 V46 M60 60 L76 70" stroke-width="4"/><circle cx="60" cy="60" r="3" fill="#594b40"/>'],
+  ["coin", "100円玉", "circle", '<circle cx="60" cy="60" r="47" fill="#c9cdcf" stroke="#7c8286"/><circle cx="60" cy="60" r="41" fill="none" stroke="#969da1" stroke-width="2"/><g fill="#61696f" stroke="none" font-family="sans-serif" text-anchor="middle"><text x="60" y="41" font-size="12">日本国</text><text x="60" y="76" font-size="35" font-weight="bold">100</text><text x="60" y="94" font-size="11">円</text></g>'],
+  ["button", "ボタン", "circle", '<circle cx="60" cy="60" r="47" fill="#d88d86"/><circle cx="60" cy="60" r="36" fill="#eaaea5"/><g fill="#fff" stroke="#9d655f" stroke-width="2"><circle cx="49" cy="49" r="5"/><circle cx="71" cy="49" r="5"/><circle cx="49" cy="71" r="5"/><circle cx="71" cy="71" r="5"/></g>']
+].map(([key, name, category, drawing]) => ({ key, name, category, svg: objectSvg(name, drawing) }));
+
+function createEverydaySet(setNumber) {
+  const categories = ["triangle", "square", "circle"];
+  const extra = categories[Math.floor(Math.random() * categories.length)];
+  const selected = categories.flatMap(category => shuffle(everydayObjects.filter(item => item.category === category)).slice(0, category === extra ? 4 : 3));
+  return {
+    targets: categories.map(category => ({ id: `s${setNumber}-${category}`, category })),
+    choices: shuffle(selected).map(item => ({ ...item, id: `s${setNumber}-${item.key}` }))
+  };
+}
+let everydayTransition = false;
+function renderEveryday() {
+  everydayTransition = false;
+  const labels = { triangle: "△ 三角", square: "□ ▭ 四角", circle: "○ 丸" };
+  currentItems.targets.forEach(item => {
+    const card = document.createElement("section");
+    card.className = "target-card category-card";
+    card.innerHTML = `<h2>${labels[item.category]}</h2><div class="drop-area category-drop" data-target="${item.id}" aria-label="${labels[item.category]}に入れる"></div>`;
+    board.appendChild(card);
+  });
+  currentItems.choices.forEach(item => {
+    const choice = document.createElement("div");
+    choice.className = "choice object-choice";
+    choice.dataset.id = item.id;
+    choice.innerHTML = item.svg;
+    choice.setAttribute("aria-label", item.name);
+    choice.addEventListener("pointerdown", e => {
+      if (placed.has(item.id) || everydayTransition || dragId) return;
+      e.preventDefault();
+      dragId = item.id;
+      dragGhost.innerHTML = item.svg;
+      dragGhost.style.display = "flex";
+      moveDragGhost(e.clientX, e.clientY);
+      choice.setPointerCapture?.(e.pointerId);
+    });
+    choices.appendChild(choice);
+  });
+}
+function placeEveryday(choiceId, targetId) {
+  if (everydayTransition || placed.has(choiceId)) return;
+  const choice = currentItems.choices.find(item => item.id === choiceId);
+  const target = currentItems.targets.find(item => item.id === targetId);
+  if (!choice || !target) return;
+  if (choice.category !== target.category) {
+    message.textContent = "もう一度";
+    return;
+  }
+  const drop = document.querySelector(`.category-drop[data-target="${targetId}"]`);
+  const illustration = document.createElement("div");
+  illustration.className = "sorted-object";
+  illustration.innerHTML = choice.svg;
+  drop.appendChild(illustration);
+  document.querySelector(`.choice[data-id="${choiceId}"]`).classList.add("sorted");
+  placed.add(choiceId);
+  message.textContent = "";
+  if (placed.size === currentItems.choices.length) {
+    everydayTransition = true;
+    setTimeout(() => {
+      completedSets++;
+      updateProgress();
+      if (completedSets === TOTAL_SETS) {
+        document.body.classList.add("finished");
+        resetButton.style.visibility = "visible";
+        resetButton.style.display = "block";
+      } else {
+        currentSet++;
+        render();
+      }
+    }, 900);
+  }
+}
+document.addEventListener("pointercancel", () => {
+  dragId = null;
+  dragGhost.style.display = "none";
+  dragGhost.innerHTML = "";
+  document.querySelectorAll(".drop-area").forEach(el => el.classList.remove("highlight"));
 });
 
 render();
